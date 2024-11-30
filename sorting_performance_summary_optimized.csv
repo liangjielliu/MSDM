@@ -1,0 +1,14 @@
+Column,Algorithm,Average Time (s)
+VehicleType,Merge Sort,0.24870120154486763
+VehicleType,Quick Sort,0.010972420374552408
+VehicleType,Heap Sort,0.18224067158169216
+VehicleType,Counting Sort,0.007776975631713867
+DirectionTime,Merge Sort,0.26045963499281144
+DirectionTime,Quick Sort,0.09523868560791016
+DirectionTime,Heap Sort,0.4229368368784587
+GantryID,Merge Sort,0.2738371160295274
+GantryID,Quick Sort,0.08845877647399902
+GantryID,Heap Sort,0.4654347366756863
+TripLength,Merge Sort,0.25876861148410374
+TripLength,Quick Sort,0.061930550469292536
+TripLength,Heap Sort,0.4217340416378445
