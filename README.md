@@ -6,7 +6,7 @@ The contents are quite mixed, including **Jupyter notebooks, reports, datasets, 
 
 Main contents include:
 - Course assignments (ipynb, pdf, docx)
-- Project codes and reports (machine learning, statistical modeling, data mining, etc.)
+- Project codes and reports (algorithm, machine learning, statistical modeling, data analysis, etc.)
 - Datasets (csv, xlsx, json, npy)
 - Visualizations and result plots (png, jpg, pdf)
 - Other study materials and experimental files  
@@ -14,4 +14,4 @@ Main contents include:
 Overall, this repository serves as a record of my learning and research journey during the MSDM master’s program.  
 
 ---
-**Note**: The files are not strictly organized, and the naming may not always be consistent. Please browse through to locate what you need.
+**Note**: The files are not strictly organized, and the naming may not always be consistent.
