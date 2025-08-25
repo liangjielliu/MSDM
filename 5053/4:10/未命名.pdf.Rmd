@@ -1,0 +1,63 @@
+---
+title: "Starbucks Log Return Analysis"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 📁 数据读取与预处理
+
+我们分析 Starbucks 股票与 S&P500 指数的对数收益率数据。文件为 `d-sbuxsp0106.txt`，包含日期、SBUX 简单收益率、SP500 简单收益率三列。
+
+```{r}
+# 读取数据
+df <- read.table("d-sbuxsp0106.txt", header = FALSE)
+colnames(df) <- c("Date", "SBUX_simple", "SP500_simple")
+
+# 转换日期格式并按时间排序
+df$Date <- as.Date(as.character(df$Date), format = "%Y%m%d")
+df <- df[order(df$Date), ]
+```
+
+## 📈 计算对数收益率（Log Return）
+
+```{r}
+df$SBUX_log <- 100 * log(1 + df$SBUX_simple)
+df$SP500_log <- 100 * log(1 + df$SP500_simple)
+```
+
+## 🔎 ACF 与 PACF 图
+
+```{r}
+sbux_log <- na.omit(df$SBUX_log)
+
+acf(sbux_log, lag.max = 10, main = "ACF of Starbucks Log Returns")
+pacf(sbux_log, lag.max = 10, main = "PACF of Starbucks Log Returns")
+```
+
+## 🧪 Ljung-Box 检验
+
+```{r}
+ljung_result <- Box.test(sbux_log, lag = 10, type = "Ljung-Box")
+ljung_result
+```
+
+```{r}
+if (ljung_result$p.value < 0.05) {
+  cat("✅ Ljung-Box 检验结果：p值 =", round(ljung_result$p.value, 4), "，拒绝白噪声假设，序列存在显著序列相关性。\n")
+} else {
+  cat("🔍 Ljung-Box 检验结果：p值 =", round(ljung_result$p.value, 4), "，未拒绝白噪声假设，序列看起来像白噪声。\n")
+}
+```
+
+## ✅ 分析总结
+
+-   成功读取 Starbucks 股票收益率数据\
+-   转换为对数收益率\
+-   ACF 与 PACF 图揭示一阶显著自相关\
+-   Ljung-Box 检验支持存在序列相关性\
+-   ✅ 后续可进行 GARCH 建模分析

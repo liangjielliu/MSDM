@@ -1,0 +1,186 @@
+
+import numpy as np
+from scipy.optimize import minimize
+import pandas as pd
+
+# --------------- 数据加载与预处理 ---------------
+def load_sonar_data(file_path):
+    data = pd.read_csv(file_path, header=None)
+    X = data.iloc[:, :-1].values
+    y_labels = data.iloc[:, -1].values
+    y = np.array([1 if label == 'M' else -1 for label in y_labels])
+    return X, y
+
+# --------------- 核函数 ---------------
+def rbf_kernel(x1, x2, gamma):
+    return np.exp(-gamma * np.dot(x1 - x2, x1 - x2))
+
+def compute_kernel_matrix(X, gamma):
+    sq_dists = np.sum(X**2, axis=1)[:, None] + np.sum(X**2, axis=1)[None, :] - 2 * np.dot(X, X.T)
+    return np.exp(-gamma * sq_dists)
+
+# --------------- SVM 训练函数 ---------------
+def train_svm(X_train, y_train, C, gamma, tol=1e-5):
+    n = len(X_train)
+    K = compute_kernel_matrix(X_train, gamma)
+    Q = np.outer(y_train, y_train) * K
+
+    def objective(alpha):
+        return 0.5 * alpha @ Q @ alpha - np.sum(alpha)
+
+    def gradient(alpha):
+        return Q @ alpha - np.ones(n)
+
+    constraints = {'type': 'eq', 'fun': lambda a: np.dot(a, y_train), 'jac': lambda a: y_train}
+    bounds = [(0, C)] * n
+    alpha0 = np.zeros(n)
+
+    res = minimize(objective, alpha0, jac=gradient, bounds=bounds, constraints=constraints,
+                   method='SLSQP', tol=1e-6, options={'disp': False, 'maxiter': 1000})
+
+    if not res.success:
+        print("SLSQP 优化失败:", res.message)
+        return np.array([]), np.array([]), np.array([]), 0.0, np.zeros(n)
+
+    alphas = res.x
+    sv_mask = alphas > tol
+    alpha_sv = alphas[sv_mask]
+    X_sv = X_train[sv_mask]
+    y_sv = y_train[sv_mask]
+
+    if len(alpha_sv) == 0:
+        return alpha_sv, X_sv, y_sv, 0.0, alphas
+
+    margin_mask = (alphas > tol) & (alphas < C - tol)
+    b_list = []
+    for i in np.where(margin_mask)[0]:
+        s = sum(alpha_sv[j] * y_sv[j] * rbf_kernel(X_sv[j], X_train[i], gamma) for j in range(len(alpha_sv)))
+        b_list.append(y_train[i] - s)
+
+    b = np.mean(b_list) if b_list else 0.0
+    return alpha_sv, X_sv, y_sv, b, alphas
+
+# --------------- SVM 预测函数 ---------------
+def predict_svm(X_eval, alpha_sv, X_sv, y_sv, b, gamma):
+    if len(alpha_sv) == 0:
+        scores = np.full(X_eval.shape[0], b)
+        preds = np.sign(scores)
+        preds[preds == 0] = 1
+        return preds, scores
+
+    scores = np.array([
+        sum(alpha_sv[j] * y_sv[j] * rbf_kernel(X_sv[j], x, gamma) for j in range(len(alpha_sv))) + b
+        for x in X_eval
+    ])
+    preds = np.sign(scores)
+    preds[preds == 0] = 1
+    return preds, scores
+
+# --------------- 主程序（任务1~3） ---------------
+if __name__ == "__main__":
+    X, y = load_sonar_data("sonar.all-data")
+    n = len(X)
+    n_splits = 13
+    epsilon = 1e-4
+
+    # ---------- 任务1 ----------
+    print("任务1: C=10, gamma=1")
+    C, gamma = 10, 1
+    train_errors, test_errors, sv_counts, correct_outliers = [], [], [], []
+
+    for i in range(n_splits):
+        test_idx = np.arange(i, n, n_splits)
+        train_idx = np.setdiff1d(np.arange(n), test_idx)
+        X_train, y_train = X[train_idx], y[train_idx]
+        X_test, y_test = X[test_idx], y[test_idx]
+
+        alpha_sv, X_sv, y_sv, b, alphas = train_svm(X_train, y_train, C, gamma)
+        if len(alpha_sv) == 0:
+            train_errors.append(0.5)
+            test_errors.append(0.5)
+            sv_counts.append(0)
+            correct_outliers.append(0)
+            continue
+
+        train_preds, _ = predict_svm(X_train, alpha_sv, X_sv, y_sv, b, gamma)
+        test_preds, _ = predict_svm(X_test, alpha_sv, X_sv, y_sv, b, gamma)
+        train_errors.append(np.mean(train_preds != y_train))
+        test_errors.append(np.mean(test_preds != y_test))
+        sv_counts.append(len(alpha_sv))
+
+        outlier_mask = np.isclose(alphas, C, atol=epsilon)
+        correct = sum(train_preds[i] == y_train[i] for i in range(len(y_train)) if outlier_mask[i])
+        correct_outliers.append(correct)
+
+    print(f"平均训练误差: {np.mean(train_errors):.4f}, 标准差: {np.std(train_errors):.4f}")
+    print(f"平均测试误差: {np.mean(test_errors):.4f}, 标准差: {np.std(test_errors):.4f}")
+    print(f"平均支持向量数量: {np.mean(sv_counts):.2f}")
+    print(f"平均正确离群点数量: {np.mean(correct_outliers):.2f}")
+
+    # ---------- 任务2 ----------
+    print("\n任务2: 分析不同 C 值对离群点和支持向量的影响")
+    C_values = [0.01, 0.1, 1, 10, 50, 100]
+    result_table = []
+
+    for C in C_values:
+        svs, correct_outs, incorrect_outs = [], [], []
+        for i in range(n_splits):
+            test_idx = np.arange(i, n, n_splits)
+            train_idx = np.setdiff1d(np.arange(n), test_idx)
+            X_train, y_train = X[train_idx], y[train_idx]
+
+            alpha_sv, X_sv, y_sv, b, alphas = train_svm(X_train, y_train, C, gamma)
+            if len(alpha_sv) == 0:
+                svs.append(0)
+                correct_outs.append(0)
+                incorrect_outs.append(0)
+                continue
+
+            train_preds, _ = predict_svm(X_train, alpha_sv, X_sv, y_sv, b, gamma)
+            outlier_mask = np.isclose(alphas, C, atol=epsilon)
+            correct = sum(train_preds[i] == y_train[i] for i in range(len(y_train)) if outlier_mask[i])
+            incorrect = sum(train_preds[i] != y_train[i] for i in range(len(y_train)) if outlier_mask[i])
+
+            svs.append(len(alpha_sv))
+            correct_outs.append(correct)
+            incorrect_outs.append(incorrect)
+
+        result_table.append({
+            "C": C,
+            "Avg SVs": np.mean(svs),
+            "Correct Outliers": np.mean(correct_outs),
+            "Incorrect Outliers": np.mean(incorrect_outs)
+        })
+
+    df2 = pd.DataFrame(result_table)
+    print(df2)
+
+    # ---------- 任务3 ----------
+    print("\n任务3: 超参数调优")
+    gamma_list = [0.01, 0.1, 0.5, 1, 5]
+    C_list = [0.1, 1, 10, 50, 100]
+    best_result = {"gamma": None, "C": None, "error": float('inf')}
+
+    for gamma in gamma_list:
+        for C in C_list:
+            test_errors = []
+            for i in range(n_splits):
+                test_idx = np.arange(i, n, n_splits)
+                train_idx = np.setdiff1d(np.arange(n), test_idx)
+                X_train, y_train = X[train_idx], y[train_idx]
+                X_test, y_test = X[test_idx], y[test_idx]
+
+                alpha_sv, X_sv, y_sv, b, _ = train_svm(X_train, y_train, C, gamma)
+                if len(alpha_sv) == 0:
+                    test_errors.append(0.5)
+                    continue
+                preds, _ = predict_svm(X_test, alpha_sv, X_sv, y_sv, b, gamma)
+                test_errors.append(np.mean(preds != y_test))
+
+            avg_error = np.mean(test_errors)
+            if avg_error < best_result["error"]:
+                best_result = {"gamma": gamma, "C": C, "error": avg_error}
+
+            print(f"Gamma={gamma}, C={C} => 平均测试误差: {avg_error:.4f}")
+
+    print(f"最优结果: Gamma={best_result['gamma']}, C={best_result['C']}, 测试误差={best_result['error']:.4f}")

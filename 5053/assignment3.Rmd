@@ -1,0 +1,657 @@
+---
+title: 'Assignment 3: Time Series Modeling'
+author: "LIU Liangjie"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "/Users/liuliangjie/Desktop/MSDM/5053/4:10")
+```
+
+# Load Required Packages
+
+```{r}
+library(tseries)
+library(FinTS)
+library(rugarch)
+library(forecast)
+library(ggplot2)
+setwd("/Users/liuliangjie/Desktop/MSDM/5053/4:10")
+```
+
+# Problem 1: Starbucks and S&P500 Returns
+
+## Data Loading and Transformation
+
+```{r}
+# Step 1: Load and preprocess the data
+# The file contains three columns: date, SBUX simple return, and S&P500 simple return
+df <- read.table("d-sbuxsp0106.txt", header = FALSE)
+colnames(df) <- c("Date", "SBUX_simple", "SP500_simple")
+
+# Convert the date column to Date format and sort by time
+df$Date <- as.Date(as.character(df$Date), format = "%Y%m%d")
+df <- df[order(df$Date), ]
+# Step 2: Convert to percentage log returns
+df$SBUX_log <- 100 * log(1 + df$SBUX_simple)
+df$SP500_log <- 100 * log(1 + df$SP500_simple)
+```
+
+## a. Serial Correlation in SBUX Log Returns
+
+```{r}
+# Step 3: Plot ACF and PACF for SBUX log return
+sbux_log <- na.omit(df$SBUX_log)
+
+# ACF plot (up to lag 10)
+acf(sbux_log, lag.max = 10, main = "ACF of Starbucks Log Returns")
+
+# PACF plot (up to lag 10)
+pacf(sbux_log, lag.max = 10, main = "PACF of Starbucks Log Returns")
+
+# Step 4: Perform Ljung-Box test for autocorrelation
+ljung_result <- Box.test(sbux_log, lag = 10, type = "Ljung-Box")
+
+cat("Ljung-Box Test Result (lag = 10):\n")
+print(ljung_result)
+
+if (ljung_result$p.value < 0.05) {
+  cat("Significant autocorrelation detected (reject white noise hypothesis)\n")
+} else {
+  cat("No significant autocorrelation found\n")
+}
+```
+
+## b. ARCH Effect in SBUX Log Returns
+
+```{r}
+# Step 2: Perform ARCH-LM test (lag = 10)
+# The function ArchTest() in FinTS package tests for ARCH effects
+
+arch_test <- ArchTest(sbux_log, lags = 10)
+
+cat("ARCH-LM Test Result (lags = 10):\n")
+cat(sprintf("LM Statistic: %.4f\n", arch_test$statistic))
+cat(sprintf("LM p-value  : %.4f\n", arch_test$p.value))
+# Step 3: Interpretation of the ARCH-LM test result
+
+if (arch_test$p.value < 0.05) {
+  cat("Significant ARCH effect detected (reject null hypothesis of homoskedasticity)\n")
+} else {
+  cat("No significant ARCH effect found (fail to reject null hypothesis of homoskedasticity)\n")
+}
+```
+
+## c. Fit GARCH(1,1) Model
+
+```{r}
+# Step 2: Fit GARCH(1,1) model with normal distribution assumption
+# Specify the model: GARCH(1,1) with normal errors
+garch_spec <- ugarchspec(
+  variance.model = list(model = "sGARCH", garchOrder = c(1, 1)),
+  mean.model = list(armaOrder = c(0, 0), include.mean = TRUE),
+  distribution.model = "norm"
+)
+
+# Fit the model to sbux_log
+garch_fit <- ugarchfit(spec = garch_spec, data = sbux_log)
+
+# Show summary of the fitted model
+show(garch_fit)
+
+# Step 3: Residual diagnostics
+
+# Extract standardized residuals
+std_resid <- residuals(garch_fit, standardize = TRUE)
+std_resid <- na.omit(std_resid)
+
+# ACF plot of standardized residuals
+acf(std_resid, lag.max = 10, main = "ACF of Standardized Residuals")
+
+# Perform ARCH-LM test on squared residuals
+arch_test_resid <- ArchTest(std_resid, lags = 10)
+
+cat("\nARCH-LM test on standardized residuals:\n")
+cat(sprintf("LM Statistic: %.4f, p-value: %.4f\n", arch_test_resid$statistic, arch_test_resid$p.value))
+
+if (arch_test_resid$p.value < 0.05) {
+  cat("ARCH effect still present in residuals → Model may be insufficient\n")
+} else {
+  cat("No ARCH effect found in residuals → Model fits well\n")
+}
+
+# Step 4: Write out the fitted GARCH(1,1) model
+
+params <- coef(garch_fit)
+mu <- params["mu"]
+omega <- params["omega"]
+alpha <- params["alpha1"]
+beta <- params["beta1"]
+
+cat("\nThe fitted GARCH(1,1) model is:\n")
+cat(sprintf("r_t = %.4f + ε_t\n", mu))
+cat("ε_t = z_t * sqrt(h_t),   z_t ~ N(0, 1)\n")
+cat(sprintf("h_t = %.4f + %.4f * ε_(t-1)^2 + %.4f * h_(t-1)\n", omega, alpha, beta))
+```
+
+# Problem 2: S&P500 Log Returns
+
+## a. Serial Correlation Test
+
+```{r}
+# Step 1: Extract SP500 log return series
+sp_log <- na.omit(df$SP500_log)
+# Step 2: ACF and PACF plots for SP500 log returns
+
+acf(sp_log, lag.max = 10, main = "ACF of S&P 500 Log Returns")
+pacf(sp_log, lag.max = 10, main = "PACF of S&P 500 Log Returns")
+# Step 3: Ljung-Box test for autocorrelation (lag = 10)
+
+sp_ljung <- Box.test(sp_log, lag = 10, type = "Ljung-Box")
+
+cat("Ljung-Box Test Result (lag = 10) for SP500 log return:\n")
+print(sp_ljung)
+
+if (sp_ljung$p.value < 0.05) {
+  cat("Significant autocorrelation detected in SP500 log returns\n")
+} else {
+  cat("No significant autocorrelation found in SP500 log returns\n")
+}
+```
+
+## b. ARCH Effect Test
+
+```{r}
+# Step 4: Perform ARCH-LM test on SP500 log returns (lag = 10)
+
+arch_test_sp <- ArchTest(sp_log, lags = 10)
+
+cat("\nARCH-LM Test Result (SP500 log return, lags = 10):\n")
+cat(sprintf("LM Statistic: %.4f\n", arch_test_sp$statistic))
+cat(sprintf("LM p-value  : %.4f\n", arch_test_sp$p.value))
+
+if (arch_test_sp$p.value < 0.05) {
+  cat("Significant ARCH effect detected in SP500 log returns\n")
+} else {
+  cat("No significant ARCH effect found in SP500 log returns\n")
+}
+```
+
+## c. Fit IGARCH(1,1) Model
+
+```{r}
+# Step 2: Fit IGARCH(1,1) model (normal distribution)
+
+# In IGARCH, omega = 0 and alpha + beta = 1 is imposed
+igarch_spec <- ugarchspec(
+  variance.model = list(model = "iGARCH", garchOrder = c(1, 1)),
+  mean.model = list(armaOrder = c(0, 0), include.mean = TRUE),
+  distribution.model = "norm"
+)
+
+# Fit the model to SP500 log returns
+igarch_fit <- ugarchfit(spec = igarch_spec, data = sp_log)
+
+# Step 3: Show model estimation results
+
+show(igarch_fit)
+
+# Extract estimated parameters
+params <- coef(igarch_fit)
+mu <- params["mu"]
+alpha <- params["alpha1"]
+beta <- params["beta1"]
+alpha_plus_beta <- alpha + beta
+
+# Write out the fitted model expression
+cat("\nThe fitted IGARCH(1,1) model is:\n")
+cat(sprintf("r_t = %.4f + ε_t\n", mu))
+cat("ε_t = z_t * sqrt(h_t),   z_t ~ N(0, 1)\n")
+cat(sprintf("h_t = %.4f * ε_(t-1)^2 + %.4f * h_(t-1)\n", alpha, beta))
+cat(sprintf("where α + β = %.4f ≈ 1\n", alpha_plus_beta))
+```
+
+## d. Forecast 1 to 4 Steps Ahead
+
+```{r}
+# Step 1: Use the IGARCH model to forecast 1~4 steps ahead
+
+# Forecast horizon = 4
+igarch_forecast <- ugarchforecast(igarch_fit, n.ahead = 4)
+
+# Extract forecasted mean and variance
+mean_forecast <- fitted(igarch_forecast)
+var_forecast <- sigma(igarch_forecast)^2
+std_forecast <- sqrt(var_forecast)
+
+# Print forecasted mean and std
+cat("Forecast of log returns for S&P500:\n")
+for (i in 1:4) {
+  cat(sprintf("Step %d: Mean = %.4f, Std = %.4f\n",
+              i, mean_forecast[i], std_forecast[i]))
+}
+# Step 2: Compute 95% confidence interval for 1-step ahead forecast
+
+z_critical <- qnorm(0.975)  # 95% z critical value
+mean_1 <- mean_forecast[1]
+std_1 <- std_forecast[1]
+
+lower <- mean_1 - z_critical * std_1
+upper <- mean_1 + z_critical * std_1
+
+cat("\n1-step ahead forecast interval (95% CI):\n")
+cat(sprintf("Mean: %.4f\n", mean_1))
+cat(sprintf("95%% CI: [%.4f, %.4f]\n", lower, upper))
+```
+
+# Problem 3: Extensions on SBUX
+
+## a. Fit GARCH(1,1)-M Model
+
+```{r}
+# Step 2: Fit GARCH(1,1)-M model using normal distribution
+
+# Specify GARCH-M(1,1) model with volatility-in-mean term
+garchm_spec <- ugarchspec(
+  variance.model = list(model = "sGARCH", garchOrder = c(1, 1)),
+  mean.model = list(armaOrder = c(0, 0), include.mean = TRUE,
+                    archm = TRUE, archpow = 1),  # use sqrt(h_t)
+  distribution.model = "norm"
+)
+
+# Fit the model
+garchm_fit <- ugarchfit(spec = garchm_spec, data = df$SBUX_log)
+
+# Step 3: Print summary of fitted model
+
+show(garchm_fit)
+
+# Extract parameters
+params <- coef(garchm_fit)
+mu <- params["mu"]
+lambda <- params["archm"]
+omega <- params["omega"]
+alpha <- params["alpha1"]
+beta <- params["beta1"]
+# Step 4: Write out the fitted model expression
+
+cat("\nThe fitted GARCH(1,1)-M model is:\n")
+cat(sprintf("r_t = %.4f + %.4f * h_t + ε_t\n", mu, lambda))
+cat("ε_t = z_t * sqrt(h_t),   z_t ~ N(0, 1)\n")
+cat(sprintf("h_t = %.4f + %.4f * ε_(t-1)^2 + %.4f * h_(t-1)\n", omega, alpha, beta))
+```
+
+## b. Check Significance of ARCH-in-Mean Term
+
+```{r}
+# Step 1: Extract parameter estimates and p-values from GARCH-M model
+
+# coef(garchm_fit) gives point estimates
+# garchm_fit@fit$matcoef contains: Estimate, Std. Error, t-value, and p-value
+param_table <- as.data.frame(garchm_fit@fit$matcoef)
+
+# Rename columns for clarity
+colnames(param_table) <- c("Estimate", "Std.Error", "t.value", "p.value")
+
+# Print the parameter table
+cat("\nParameter estimates and p-values:\n")
+print(round(param_table, 4))
+# Step 2: Check significance of ARCH-in-mean parameter (lambda)
+
+lambda_pval <- param_table["archm", "p.value"]
+
+if (lambda_pval < 0.05) {
+  cat(sprintf("\nARCH-in-mean parameter is significant (p = %.4f < 0.05)\n", lambda_pval))
+} else {
+  cat(sprintf("\nARCH-in-mean parameter is not significant (p = %.4f ≥ 0.05)\n", lambda_pval))
+}
+```
+
+## c. Fit EGARCH(1,1) Model
+
+```{r}
+# Step 1: Fit EGARCH(1,1) model with normal distribution
+
+egarch_spec <- ugarchspec(
+  variance.model = list(model = "eGARCH", garchOrder = c(1, 1)),
+  mean.model = list(armaOrder = c(0, 0), include.mean = TRUE),
+  distribution.model = "norm"
+)
+
+egarch_fit <- ugarchfit(spec = egarch_spec, data = sbux_log)
+
+# Step 2: Display model estimation results
+
+show(egarch_fit)
+
+# Extract parameters
+eg_params <- coef(egarch_fit)
+mu <- eg_params["mu"]
+omega <- eg_params["omega"]
+alpha <- eg_params["alpha1"]
+beta <- eg_params["beta1"]
+gamma <- eg_params["gamma1"]
+
+# Step 3: Write out the EGARCH(1,1) model expression
+
+cat("\nThe fitted EGARCH(1,1) model is:\n")
+cat(sprintf("r_t = %.4f + ε_t\n", mu))
+cat("ε_t = z_t * sqrt(h_t),   z_t ~ N(0, 1)\n")
+cat(sprintf("log(h_t) = %.4f + %.4f * |ε_(t-1)/√h_(t-1)| + %.4f * (ε_(t-1)/√h_(t-1)) + %.4f * log(h_(t-1))\n",
+            omega, alpha, gamma, beta))
+```
+
+## d. Check Significance of Leverage Term
+
+```{r}
+# Step 4: Residual autocorrelation and ARCH effect check
+
+# Standardized residuals
+resid_std <- residuals(egarch_fit, standardize = TRUE)
+resid_std <- na.omit(resid_std)
+
+# ACF plot of standardized residuals
+acf(resid_std, lag.max = 10, main = "ACF of Standardized Residuals (EGARCH)")
+
+# ARCH-LM test for residuals
+arch_test <- ArchTest(resid_std, lags = 10)
+
+cat(sprintf("\nARCH-LM Test on EGARCH residuals: LM Statistic = %.4f, p-value = %.4f\n",
+            arch_test$statistic, arch_test$p.value))
+
+if (arch_test$p.value < 0.05) {
+  cat("ARCH effect still present in residuals → Model may be insufficient\n")
+} else {
+  cat("No significant ARCH effect in residuals → Model fits well\n")
+}
+# Step: Extract EGARCH(1,1) parameter table and check significance of gamma
+
+# garch@fit$matcoef contains the coefficient matrix: Estimate, Std. Error, t-value, and p-value
+egarch_table <- as.data.frame(egarch_fit@fit$matcoef)
+colnames(egarch_table) <- c("Estimate", "Std.Error", "t.value", "p.value")
+
+# Print parameter table
+cat("\nParameter estimates for EGARCH(1,1):\n")
+print(round(egarch_table, 4))
+# Step: Check significance of gamma (leverage effect)
+
+gamma_pval <- egarch_table["gamma1", "p.value"]
+
+if (gamma_pval < 0.05) {
+  cat(sprintf("\nGamma parameter is significant (p = %.4f < 0.05) → Leverage effect detected\n", gamma_pval))
+} else {
+  cat(sprintf("\nGamma parameter is not significant (p = %.4f ≥ 0.05) → No strong evidence of leverage effect\n", gamma_pval))
+}
+```
+
+# Problem 4: PG Monthly Returns
+
+## Data Loading and Log Return Calculation
+
+```{r}
+# Step 1: Read PG monthly return data
+
+# The file contains two columns: Date and PG simple return
+pg_df <- read.table("m-pg5606.txt", header = FALSE)
+colnames(pg_df) <- c("Date", "PG_simple")
+
+# Parse date and sort by time
+pg_df$Date <- as.Date(as.character(pg_df$Date), format = "%Y%m%d")
+pg_df <- pg_df[order(pg_df$Date), ]
+# Step 2: Convert to percentage log returns
+
+pg_df$PG_log <- 100 * log(1 + pg_df$PG_simple)
+```
+
+## a. Serial Correlation Test
+
+```{r}
+# Step 3: ACF plot and Ljung-Box test for PG log returns
+
+pg_log <- na.omit(pg_df$PG_log)
+
+# ACF plot (up to lag 10)
+acf(pg_log, lag.max = 10, main = "ACF of PG Monthly Log Returns")
+
+# Ljung-Box test (up to lag 10)
+ljung_pg <- Box.test(pg_log, lag = 10, type = "Ljung-Box")
+
+cat("Ljung-Box Test Result (lag = 10):\n")
+print(ljung_pg)
+
+if (ljung_pg$p.value < 0.05) {
+  cat("Significant autocorrelation detected in PG monthly log returns\n")
+} else {
+  cat("No significant autocorrelation found in PG monthly log returns\n")
+}
+```
+
+## b. Fit GARCH(1,1)
+
+```{r}
+# Step 1: Prepare PG log return series
+
+pg_log <- na.omit(pg_df$PG_log)
+
+# Step 2: Fit GARCH(1,1) model with normal distribution
+
+library(rugarch)
+
+pg_spec <- ugarchspec(
+  variance.model = list(model = "sGARCH", garchOrder = c(1, 1)),
+  mean.model = list(armaOrder = c(0, 0), include.mean = TRUE),
+  distribution.model = "norm"
+)
+
+pg_fit <- ugarchfit(spec = pg_spec, data = pg_log)
+
+# Step 3: Show model estimation results
+
+show(pg_fit)
+
+# Extract estimated parameters
+params <- coef(pg_fit)
+mu <- params["mu"]
+omega <- params["omega"]
+alpha <- params["alpha1"]
+beta <- params["beta1"]
+# Step 4: Write out the fitted GARCH(1,1) model
+
+cat("\nThe fitted GARCH(1,1) model for PG is:\n")
+cat(sprintf("r_t = %.4f + ε_t\n", mu))
+cat("ε_t = z_t * sqrt(h_t),   z_t ~ N(0, 1)\n")
+cat(sprintf("h_t = %.4f + %.4f * ε_(t-1)^2 + %.4f * h_(t-1)\n", omega, alpha, beta))
+```
+
+## c. Forecast 1 to 5 Steps Ahead
+
+```{r}
+# Step 1: Forecast PG log returns 1~5 steps ahead using GARCH(1,1) model
+
+pg_forecast <- ugarchforecast(pg_fit, n.ahead = 5)
+
+# Extract forecasted mean and standard deviation
+mean_fc <- fitted(pg_forecast)
+std_fc <- sigma(pg_forecast)
+var_fc <- std_fc^2
+
+cat("PG log return forecasts (next 1~5 steps):\n")
+for (i in 1:5) {
+  cat(sprintf("Step %d: Mean = %.4f, Std = %.4f\n", i, mean_fc[i], std_fc[i]))
+}
+# Step 2: Compute 95% confidence interval for 1-step ahead forecast
+
+z_975 <- qnorm(0.975)  # 95% critical z-value
+
+mean_1 <- mean_fc[1]
+std_1 <- std_fc[1]
+
+lower <- mean_1 - z_975 * std_1
+upper <- mean_1 + z_975 * std_1
+
+cat("\nPG 1-step ahead forecast 95% CI:\n")
+cat(sprintf("Mean: %.4f\n", mean_1))
+cat(sprintf("95%% CI: [%.4f, %.4f]\n", lower, upper))
+```
+
+# Problem 5: EUR/USD Exchange Rate
+
+## Load and Transform Exchange Rate Data
+
+```{r}
+# Step 1: Read exchange rate data
+# File contains 4 columns: Year, Month, Day, ExchangeRate
+fx_df <- read.table("d-exuseu.txt", header = FALSE)
+colnames(fx_df) <- c("Year", "Month", "Day", "Rate")
+
+# Combine year/month/day into one Date column
+fx_df$Date <- as.Date(paste(fx_df$Year, fx_df$Month, fx_df$Day, sep = "-"))
+
+# Sort by Date
+fx_df <- fx_df[order(fx_df$Date), ]
+
+# Step 2: Compute percentage log return
+fx_df$LogReturn <- c(NA, 100 * diff(log(fx_df$Rate)))
+
+# Remove NA to get clean log return series
+fx_log <- na.omit(fx_df$LogReturn)
+```
+
+## a. Serial Correlation Test
+
+```{r}
+# Step 3a: ACF plot and Ljung-Box test
+
+acf(fx_log, lag.max = 10, main = "ACF of FX Log Returns")
+
+ljung_fx <- Box.test(fx_log, lag = 10, type = "Ljung-Box")
+
+cat("Ljung-Box Test (lag = 10):\n")
+print(ljung_fx)
+
+if (ljung_fx$p.value < 0.05) {
+  cat("Significant autocorrelation detected in FX log returns\n")
+} else {
+  cat("No significant autocorrelation found in FX log returns\n")
+}
+```
+
+## b. ARCH Effect Test
+
+```{r}
+# Step 3b: ARCH-LM test
+
+library(FinTS)
+arch_result <- ArchTest(fx_log, lags = 10)
+
+cat("\nARCH-LM Test Result:\n")
+cat(sprintf("LM Statistic = %.4f, p-value = %.4f\n", arch_result$statistic, arch_result$p.value))
+
+if (arch_result$p.value < 0.05) {
+  cat("ARCH effect detected in FX log returns\n")
+} else {
+  cat("No ARCH effect detected in FX log returns\n")
+}
+```
+
+## c. Fit IGARCH(1,1) Model
+
+```{r}
+# Step 1: Prepare log return data for exchange rate
+
+fx_log <- na.omit(fx_df$LogReturn)
+
+# Step 2: Fit IGARCH(1,1) model (with normal distribution)
+
+library(rugarch)
+
+# Specify IGARCH(1,1): omega = 0, alpha + beta = 1
+igarch_spec <- ugarchspec(
+  variance.model = list(model = "iGARCH", garchOrder = c(1, 1)),
+  mean.model = list(armaOrder = c(0, 0)),
+  distribution.model = "norm"
+)
+
+# Fit the model to fx_log
+igarch_fit <- ugarchfit(spec = igarch_spec, data = fx_log)
+
+# Step 3: Print estimation results and model expression
+
+show(igarch_fit)
+
+# Step 4: Diagnostic checking of the IGARCH model
+
+# Extract standardized residuals
+std_resid <- residuals(igarch_fit, standardize = TRUE)
+
+# Ljung-Box test on residuals (autocorrelation)
+ljung_resid <- Box.test(std_resid, lag = 10, type = "Ljung-Box")
+
+cat("\nLjung-Box Test on residuals (lag = 10):\n")
+print(ljung_resid)
+
+# ARCH-LM test on residuals
+library(FinTS)
+arch_test <- ArchTest(std_resid, lags = 10)
+
+cat("\nARCH-LM Test on standardized residuals:\n")
+cat(sprintf("LM Statistic = %.4f, p-value = %.4f\n",
+            arch_test$statistic, arch_test$p.value))
+
+if (arch_test$p.value < 0.05) {
+  cat("ARCH effect still present in residuals → model may be inadequate\n")
+} else {
+  cat("No significant ARCH effect in residuals → model fits well\n")
+}
+
+# Extract parameters
+params <- coef(igarch_fit)
+mu <- params["mu"]
+alpha <- params["alpha1"]
+beta <- params["beta1"]
+alpha_beta <- alpha + beta
+
+# Print model expression
+cat("\nThe fitted IGARCH(1,1) model is:\n")
+cat(sprintf("r_t = %.4f + ε_t\n", mu))
+cat("ε_t = z_t * sqrt(h_t),   z_t ~ N(0, 1)\n")
+cat(sprintf("h_t = %.4f * ε_(t-1)^2 + %.4f * h_(t-1)\n", alpha, beta))
+cat(sprintf("(α + β = %.4f)\n", alpha_beta))
+```
+
+## d. Forecast 1 to 4 Steps Ahead
+
+```{r}
+# Step 1: Forecast 1~4 steps ahead using the fitted IGARCH(1,1) model
+
+forecast_fx <- ugarchforecast(igarch_fit, n.ahead = 4)
+
+# Extract forecasted mean and standard deviation
+mean_fc <- fitted(forecast_fx)
+std_fc <- sigma(forecast_fx)
+var_fc <- std_fc^2
+
+# Print forecasts
+cat("Forecast of FX log returns (USD/EUR):\n")
+for (i in 1:4) {
+  cat(sprintf("Step %d: Mean = %.4f, Std = %.4f\n", i, mean_fc[i], std_fc[i]))
+}
+# Step 2: Compute 95% confidence interval for 1-step ahead forecast
+
+z_975 <- qnorm(0.975)  # 95% critical z value
+
+mean_1 <- mean_fc[1]
+std_1 <- std_fc[1]
+
+lower <- mean_1 - z_975 * std_1
+upper <- mean_1 + z_975 * std_1
+
+cat("\n1-step ahead forecast 95% CI:\n")
+cat(sprintf("Mean: %.4f\n", mean_1))
+cat(sprintf("95%% CI: [%.4f, %.4f]\n", lower, upper))
+```
+
