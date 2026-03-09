@@ -9,14 +9,13 @@ This repository contains my coursework, assignments, and project codes from the 
 ### Course Directories
 | Directory | Description |
 |-----------|-------------|
-| `5001/` | Course 5001 - Mathematical Optimization & Programming |
-| `5002/` | Course 5002 - Data Science Foundations |
-| `5003/` | Course 5003 - Machine Learning |
-| `5004/` | Course 5004 - Deep Learning & Neural Networks |
-| `5053/` | Course 5053 - Time Series Analysis |
-| `5055/` | Course 5055 - Advanced Topics |
-| `5059/` | Course 5059 - Transportation & Traffic ML |
-| `statistical learning(5054)/` | Course 5054 - Statistical Learning |
+| `5001/` | MSDM5001 - Introduction to Computational and Modeling Tools |
+| `5002/` | MSDM5002 - Scientific Programming and Visualization |
+| `5003/` | MSDM5003 - Stochastic Processes and Applications |
+| `5053/` | MSDM5053 - Quantitative Analysis of Time Series |
+| `5054/` | MSDM5054 - Statistical Machine Learning |
+| `5055/` | MSDM5055 - Deep Learning for Modeling |
+| `5059/` | MSDM5059 - Operations Research and Optimization |
 
 ### Other Directories
 | Directory | Description |
@@ -33,14 +32,13 @@ This repository contains my coursework, assignments, and project codes from the 
 
 ## Courses Covered
 
-1. **MSDM5001** - Mathematical Optimization (sorting algorithms, numerical methods, MPI)
-2. **MSDM5002** - Data Science Foundations
-3. **MSDM5003** - Machine Learning (classification, SVM, regression)
-4. **MSDM5004** - Deep Learning (CNN, PyTorch, neural networks, MNIST)
-5. **MSDM5053** - Time Series Analysis (stock returns, portfolio optimization)
-6. **MSDM5054** - Statistical Learning (PCA, regression, classification)
-7. **MSDM5055** - Advanced Topics
-8. **MSDM5059** - ML for Transportation (traffic data, weather analysis)
+1. **MSDM5001** - Introduction to Computational and Modeling Tools（计算与建模工具导论）
+2. **MSDM5002** - Scientific Programming and Visualization（科学编程与可视化）
+3. **MSDM5003** - Stochastic Processes and Applications（随机过程及其应用）
+4. **MSDM5053** - Quantitative Analysis of Time Series（时间序列定量分析）
+5. **MSDM5054** - Statistical Machine Learning（统计机器学习）
+6. **MSDM5055** - Deep Learning for Modeling: Concepts, Tools, and Techniques（深度学习建模）
+7. **MSDM5059** - Operations Research and Optimization（运筹学与优化）
 
 ---
 
