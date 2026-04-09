@@ -1,57 +1,41 @@
-# MSDM Coursework & Projects
+# MSDM Coursework Archive
 
-This repository contains my coursework, assignments, and project codes from the **MSc in Data-Driven Modeling (MSDM)** program at **The Hong Kong University of Science and Technology (HKUST)**.
+This repository contains coursework, assignments, reports, datasets, and project files from the **MSc in Data-Driven Modeling (MSDM)** program at **HKUST**.
 
----
+The folders have been reorganized using the official course titles from the transcript as the source of truth.
 
 ## Directory Structure
 
-### Course Directories
-| Directory | Description |
-|-----------|-------------|
-| `5001/` | MSDM5001 - Introduction to Computational and Modeling Tools |
-| `5002/` | MSDM5002 - Scientific Programming and Visualization |
-| `5003/` | MSDM5003 - Stochastic Processes and Applications |
-| `5053/` | MSDM5053 - Quantitative Analysis of Time Series |
-| `5054/` | MSDM5054 - Statistical Machine Learning |
-| `5055/` | MSDM5055 - Deep Learning for Modeling |
-| `5059/` | MSDM5059 - Operations Research and Optimization |
+### Course folders
 
-### Other Directories
-| Directory | Description |
-|-----------|-------------|
-| `documents/` | General documents and reports |
-| `misc/` | Unclassified/experimental files |
-| `projects/` | Course projects |
-| `quantum/` | Quantum mechanics lecture notes |
-| `videos/` | Animation and video files |
-| `20newsgroup/` | Text classification dataset |
-| `MSDM5051_Project2/` | Image classification project |
+- `MSDM5001 Introduction to Computational and Modeling Tools`
+- `MSDM5002 Scientific Programming and Visualization`
+- `MSDM5003 Stochastic Processes and Applications`
+- `MSDM5004 Numerical Methods and Modeling in Science`
+- `MSDM5051 Algorithm and Object-Oriented Programming for Modeling`
+- `MSDM5053 Quantitative Analysis of Time Series`
+- `MSDM5054 Statistical Machine Learning`
+- `MSDM5055 Deep Learning for Modeling_ Concepts, Tools, and Techniques`
+- `MSDM5059 Operations Research and Optimization`
+- `MSDM6771 Data-Driven Modeling Seminars and Tutorials`
+- `MSDM6980 Computational Modeling and Simulation Project`
 
----
+### Notes
 
-## Courses Covered
+- `_待确认` stores files that could not be assigned to a course with high confidence.
+- Some files still keep their original homework or project names even after being moved into the correct course folder.
+- Hidden notebook checkpoint files were moved into the corresponding course folders when their ownership was clear.
 
-1. **MSDM5001** - Introduction to Computational and Modeling Tools（计算与建模工具导论）
-2. **MSDM5002** - Scientific Programming and Visualization（科学编程与可视化）
-3. **MSDM5003** - Stochastic Processes and Applications（随机过程及其应用）
-4. **MSDM5053** - Quantitative Analysis of Time Series（时间序列定量分析）
-5. **MSDM5054** - Statistical Machine Learning（统计机器学习）
-6. **MSDM5055** - Deep Learning for Modeling: Concepts, Tools, and Techniques（深度学习建模）
-7. **MSDM5059** - Operations Research and Optimization（运筹学与优化）
+## Scope
 
----
+The archive includes material such as:
 
-## Technologies Used
+- Jupyter notebooks
+- Python scripts
+- PDF reports and slides
+- Datasets and model files
+- Project assets
 
-- Python 3
-- PyTorch
-- NumPy, Pandas
-- Scikit-learn
-- Matplotlib, Seaborn
-- Statsmodels
-- Jupyter
+## Purpose
 
----
-
-This repository serves as a comprehensive record of my learning journey in the MSDM master's program.
+This repository serves as a cleaned course-by-course archive of the MSDM master's study materials.
